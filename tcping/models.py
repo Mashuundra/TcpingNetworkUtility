@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Optional, List
 from datetime import datetime
+import statistics
 
 
 @dataclass
@@ -87,12 +88,46 @@ class Stats:
         if not results:
             raise ValueError("Cannot create stats from empty results list")
 
-        # TODO: Реализовать расчет статистики
-        # - Подсчитать успешные попытки
-        # - Вычислить min/avg/max из duration успешных
-        # - Рассчитать процент потерь
-        # - Опционально: std_dev
-        pass
+        sent = len(results)
+        successful = [r for r in results if r.success]
+        received = len(successful)
+        lost = sent - received
+
+        # Расчет процента потерь
+        loss_percent = (lost / sent) * 100 if sent > 0 else 0
+
+        # Расчет временных показателей (только для успешных попыток)
+        min_time = None
+        max_time = None
+        avg_time = None
+        std_dev = None
+
+        if successful:
+            durations = [r.duration for r in successful if r.duration is not None]
+            if durations:
+                min_time = min(durations)
+                max_time = max(durations)
+                avg_time = sum(durations) / len(durations)
+                avg_time = round(avg_time, 10)  # округление до 10 знаков
+                if len(durations) > 1:
+                    try:
+                        std_dev = statistics.stdev(durations)
+                    except statistics.StatisticsError:
+                        std_dev = None
+
+        return cls(
+            host=host,
+            port=port,
+            sent=sent,
+            received=received,
+            lost=lost,
+            loss_percent=round(loss_percent, 2),
+            min_time=min_time,
+            avg_time=avg_time,
+            max_time=max_time,
+            std_dev=std_dev,
+            results=results if results else None
+        )
 
     def to_dict(self) -> dict:
         """Преобразует в словарь для JSON сериализации."""
@@ -108,3 +143,17 @@ class Stats:
             'max_time_ms': round(self.max_time * 1000, 2) if self.max_time else None,
             'std_dev_ms': round(self.std_dev * 1000, 2) if self.std_dev else None,
         }
+
+    def __str__(self) -> str:
+        """Строковое представление статистики."""
+        result = f"--- {self.host}:{self.port} ping statistics ---\n"
+        result += f"{self.sent} packets transmitted, {self.received} received, "
+        result += f"{self.loss_percent}% loss\n"
+
+        if self.received > 0:
+            result += f"round-trip min/avg/max = "
+            result += f"{self.min_time * 1000:.2f}/{self.avg_time * 1000:.2f}/{self.max_time * 1000:.2f} ms"
+            if self.std_dev:
+                result += f" (std-dev = {self.std_dev * 1000:.2f} ms)"
+
+        return result
