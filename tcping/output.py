@@ -3,7 +3,6 @@
 import json
 import sys
 from typing import List, Optional, TextIO
-from datetime import datetime
 
 from tcping.models import PingResult, Stats
 
@@ -22,7 +21,7 @@ def set_output_mode(verbose: bool = False, json_mode: bool = False, debug: bool 
 
 
 def format_duration(seconds: float) -> str:
-    # Форматирует длительность в миллисекундах.
+    """Форматирует длительность в миллисекундах."""
     if seconds is None:
         return "N/A"
     milliseconds = seconds * 1000
@@ -30,7 +29,7 @@ def format_duration(seconds: float) -> str:
 
 
 def print_result(result: PingResult, file: TextIO = None) -> None:
-    # Выводит результат одного пинга.
+    """Выводит результат одного пинга."""
     if JSON_MODE:
         return  # В JSON режиме результаты выводятся только в конце через print_stats
 
@@ -43,7 +42,7 @@ def print_result(result: PingResult, file: TextIO = None) -> None:
     else:
         line = f"Failed to connect to {result.host}:{result.port} - {result.error_message}"
 
-        # В отладочном режиме добавляем timestamp
+    # В отладочном режиме добавляем timestamp
     if DEBUG_MODE:
         timestamp = result.timestamp.strftime("%H:%M:%S.%f")[:-3]
         line = f"[{timestamp}] {line}"
@@ -52,7 +51,7 @@ def print_result(result: PingResult, file: TextIO = None) -> None:
 
 
 def print_stats(stats: Stats, file: TextIO = None) -> None:
-    # Выводит статистику по серии пингов.
+    """Выводит статистику по серии пингов."""
     if file is None:
         file = sys.stdout
 
@@ -61,7 +60,7 @@ def print_stats(stats: Stats, file: TextIO = None) -> None:
         print(json_output, file=file)
         return
 
-        # Обычный текстовый вывод
+    # Обычный текстовый вывод
     print(file=file)
     print(f"--- {stats.host}:{stats.port} ping statistics ---", file=file)
     print(f"{stats.sent} packets transmitted, {stats.received} received, "
@@ -81,7 +80,7 @@ def print_stats(stats: Stats, file: TextIO = None) -> None:
 
 
 def generate_json(stats: Stats, results: Optional[List[PingResult]] = None) -> str:
-    # Генерирует JSON представление статистики и опционально результатов.
+    """Генерирует JSON представление статистики и опционально результатов."""
     output = {
         "host": stats.host,
         "port": stats.port,
@@ -115,7 +114,7 @@ def generate_json(stats: Stats, results: Optional[List[PingResult]] = None) -> s
 
 
 def print_legend() -> None:
-    # Выводит легенду обозначений при verbose режиме
+    """Выводит легенду обозначений при verbose режиме"""
     if VERBOSE_MODE and not JSON_MODE:
         print("\nLegend:")
         print("  ✓ - successful connection")

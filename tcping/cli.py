@@ -109,7 +109,9 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
     # Парсим аргументы
     try:
         parsed_args = parser.parse_args(args)
-    except SystemExit:
+    except SystemExit as e:
+        if e.code == 0:
+            raise
         # argparse вызвал sys.exit() при ошибке
         raise ConfigurationError("Invalid command line arguments")
 

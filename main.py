@@ -15,7 +15,7 @@ from tcping.exceptions import TCpingError, ConfigurationError, HostsFileError
 
 
 def process_single_target(host: str, port: int, args) -> Tuple[List[PingResult], Stats]:
-    # Выполняет серию пингов для одной цели
+    """Выполняет серию пингов для одной цели"""
     pinger = TCPinger(timeout=args.timeout)
     results = pinger.ping_many(host, port, count=args.count, interval=args.interval)
     stats = Stats.from_results(host, port, results)
@@ -23,7 +23,7 @@ def process_single_target(host: str, port: int, args) -> Tuple[List[PingResult],
 
 
 def process_packet_mode(args) -> None:
-    # Пакетный режим: обрабатывает несколько целей из файла.
+    """Пакетный режим: обрабатывает несколько целей из файла."""
     from tcping.cli import parse_hosts_file
 
     try:
