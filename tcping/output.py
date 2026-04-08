@@ -114,7 +114,7 @@ def generate_json(stats: Stats, results: Optional[List[PingResult]] = None) -> s
 
 
 def print_legend() -> None:
-    """Выводит легенду обозначений при verbose режиме"""
+    """Выводит легенду обозначений при verbose режиме."""
     if VERBOSE_MODE and not JSON_MODE:
         print("\nLegend:")
         print("  ✓ - successful connection")
