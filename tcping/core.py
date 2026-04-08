@@ -1,86 +1,121 @@
 """Основная логика TCP пинга."""
 
-from typing import List, Optional
+import socket
+import time
+from typing import List
+
 from tcping.models import PingResult
-from tcping.exceptions import NetworkError, TimeoutError, ResolveError
 
 
 class TCPinger:
-    """
-    Класс для выполнения TCP пингов.
-
-    Пример использования:
-        pinger = TCPinger(timeout=3.0)
-        result = pinger.ping_once('google.com', 80)
-        results = pinger.ping_many('github.com', 443, count=5, interval=0.5)
-    """
+    """Класс для выполнения TCP пингов."""
 
     def __init__(self, timeout: float = 5.0):
-        """
-        Инициализирует TCPinger.
-
-        Args:
-            timeout: Таймаут соединения в секундах (по умолчанию 5.0)
-        """
         self.timeout = timeout
 
     def ping_once(self, host: str, port: int) -> PingResult:
-        """
-        Выполняет одну попытку TCP соединения.
+        """Выполняет одну попытку TCP соединения."""
+        # Алгоритм:
+        # 1. Засечь время начала (time.perf_counter())
+        # 2. Попытаться создать сокет и подключиться (socket.create_connection)
+        # 3. Засечь время окончания
+        # 4. При успехе вернуть PingResult(success=True, duration=elapsed)
+        # 5. При ошибке вернуть PingResult с соответствующим сообщением
+        #    - socket.timeout -> TimeoutError в error_message
+        #    - socket.gaierror -> ResolveError
+        #    - ConnectionRefusedError -> NetworkError
+        #    - Другие -> NetworkError
 
-        Алгоритм:
-        1. Засечь время начала (time.perf_counter())
-        2. Попытаться создать сокет и подключиться (socket.create_connection)
-        3. Засечь время окончания
-        4. При успехе вернуть PingResult(success=True, duration=elapsed)
-        5. При ошибке вернуть PingResult с соответствующим сообщением
-           - socket.timeout -> TimeoutError в error_message
-           - socket.gaierror -> ResolveError
-           - ConnectionRefusedError -> NetworkError
-           - Другие -> NetworkError
+        start_time = time.perf_counter()
 
-        Args:
-            host: Целевой хост (IP или домен)
-            port: Целевой порт
+        try:
+            with socket.create_connection((host, port), timeout=self.timeout):
+                elapsed = time.perf_counter() - start_time
+                return PingResult(
+                    success=True,
+                    host=host,
+                    port=port,
+                    duration=elapsed,
+                    error_message=None
+                )
 
-        Returns:
-            PingResult: Результат попытки (всегда возвращает объект, не бросает исключения)
-        """
-        pass
+        except socket.timeout:
+            return PingResult(
+                success=False,
+                host=host,
+                port=port,
+                duration=None,
+                error_message=f"timeout after {self.timeout}s"
+            )
+
+        except socket.gaierror as e:
+            return PingResult(
+                success=False,
+                host=host,
+                port=port,
+                duration=None,
+                error_message=f"DNS resolution failed: {e}"
+            )
+
+        except ConnectionRefusedError:
+            return PingResult(
+                success=False,
+                host=host,
+                port=port,
+                duration=None,
+                error_message="connection refused"
+            )
+
+        except socket.error as e:
+            return PingResult(
+                success=False,
+                host=host,
+                port=port,
+                duration=None,
+                error_message=f"network error: {e}"
+            )
+
+        except Exception as e:
+            return PingResult(
+                success=False,
+                host=host,
+                port=port,
+                duration=None,
+                error_message=f"unexpected error: {e}"
+            )
 
     def ping_many(self, host: str, port: int, count: int, interval: float = 1.0) -> List[PingResult]:
-        """
-        Выполняет серию TCP соединений с интервалом.
+        """Выполняет серию TCP соединений с интервалом."""
+        # Алгоритм:
+        # 1. Инициализировать пустой список results
+        # 2. Для i от 1 до count:
+        #    - Вызвать ping_once(host, port)
+        #    - Добавить результат в список
+        #    - Если не последняя попытка: time.sleep(interval)
+        # 3. Вернуть список результатов
 
-        Алгоритм:
-        1. Инициализировать пустой список results
-        2. Для i от 1 до count:
-           - Вызвать ping_once(host, port)
-           - Добавить результат в список
-           - Если не последняя попытка: time.sleep(interval)
-        3. Вернуть список результатов
+        results = []
 
-        Args:
-            host: Целевой хост
-            port: Целевой порт
-            count: Количество попыток
-            interval: Интервал между попытками в секундах
+        for i in range(count):
+            result = self.ping_once(host, port)
+            results.append(result)
 
-        Returns:
-            List[PingResult]: Список результатов (длина = count)
-        """
-        pass
+            if i < count - 1:
+                time.sleep(interval)
+
+        return results
 
     def ping_hosts_from_file(self, hosts_file_path: str, count: int, interval: float) -> dict:
-        """
-        Выполняет пинг для списка хостов из файла.
+        """Выполняет пинг для списка хостов из файла."""
+        from tcping.cli import parse_hosts_file
+        from tcping.models import Stats
 
-        Args:
-            hosts_file_path: Путь к файлу с хостами
-            count: Количество попыток на хост
-            interval: Интервал между попытками
+        targets = parse_hosts_file(hosts_file_path)
+        results_dict = {}
 
-        Returns:
-            dict: {host:port: Stats} словарь статистики для каждого хоста
-        """
-        pass
+        for host, port in targets:
+            ping_results = self.ping_many(host, port, count, interval)
+            stats = Stats.from_results(host, port, ping_results)
+            results_dict[(host, port)] = stats
+
+        return results_dict
