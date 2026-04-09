@@ -63,11 +63,9 @@ def process_packet_mode(args) -> None:
 def main():
     args = parse_args()
 
-    # Устанавливаем режимы вывода
     set_output_mode(verbose=args.verbose, json_mode=args.json, debug=args.debug)
 
     try:
-        # Проверка конфликтующих аргументов
         if args.hosts_file and (args.host or args.port):
             print("Ошибка: нельзя указывать одновременно --file и хост с портом", file=sys.stderr)
             sys.exit(1)
@@ -80,11 +78,9 @@ def main():
         elif args.host and args.port:
             results, stats = process_single_target(args.host, args.port, args)
 
-            # Выводим результаты каждой попытки
             for result in results:
                 print_result(result)
 
-            # Выводим статистику
             print_stats(stats)
 
         else:

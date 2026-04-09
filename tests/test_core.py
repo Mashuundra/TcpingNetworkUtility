@@ -29,7 +29,6 @@ class TestTCPingerPingOnce:
         assert result.error_message is None
         assert result.is_timeout() is False
 
-        # Проверяем, что create_connection был вызван с правильными параметрами
         mock_create_connection.assert_called_once_with(
             ("google.com", 80), timeout=5.0
         )

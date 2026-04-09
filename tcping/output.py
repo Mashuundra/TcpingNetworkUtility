@@ -31,7 +31,7 @@ def format_duration(seconds: float) -> str:
 def print_result(result: PingResult, file: TextIO = None) -> None:
     """Выводит результат одного пинга."""
     if JSON_MODE:
-        return  # В JSON режиме результаты выводятся только в конце через print_stats
+        return  # В JSON режиме результаты выводятся в конце
 
     if file is None:
         file = sys.stdout
