@@ -38,7 +38,7 @@ def process_packet_mode(args) -> None:
 
     for host, port in targets:
         if not args.json:
-            print(f"\n--- {host}:{port} tcping statistics ---")
+            print(f"\n{host}:{port} tcping statistics")
 
         try:
             results, stats = process_single_target(host, port, args)
