@@ -9,23 +9,11 @@ from tcping.models import PingResult
 
 class TCPinger:
     """Класс для выполнения TCP пингов."""
-
     def __init__(self, timeout: float = 5.0):
         self.timeout = timeout
 
     def ping_once(self, host: str, port: int) -> PingResult:
         """Выполняет одну попытку TCP соединения."""
-        # Алгоритм:
-        # 1. Засечь время начала (time.perf_counter())
-        # 2. Попытаться создать сокет и подключиться (socket.create_connection)
-        # 3. Засечь время окончания
-        # 4. При успехе вернуть PingResult(success=True, duration=elapsed)
-        # 5. При ошибке вернуть PingResult с соответствующим сообщением
-        #    - socket.timeout -> TimeoutError в error_message
-        #    - socket.gaierror -> ResolveError
-        #    - ConnectionRefusedError -> NetworkError
-        #    - Другие -> NetworkError
-
         start_time = time.perf_counter()
 
         try:
@@ -86,14 +74,6 @@ class TCPinger:
 
     def ping_many(self, host: str, port: int, count: int, interval: float = 1.0) -> List[PingResult]:
         """Выполняет серию TCP соединений с интервалом."""
-        # Алгоритм:
-        # 1. Инициализировать пустой список results
-        # 2. Для i от 1 до count:
-        #    - Вызвать ping_once(host, port)
-        #    - Добавить результат в список
-        #    - Если не последняя попытка: time.sleep(interval)
-        # 3. Вернуть список результатов
-
         results = []
 
         for i in range(count):
