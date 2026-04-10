@@ -62,7 +62,7 @@ def print_stats(stats: Stats, file: TextIO = None) -> None:
 
     # Обычный текстовый вывод
     print(file=file)
-    print(f"--- {stats.host}:{stats.port} ping statistics ---", file=file)
+    print(f"{stats.host}:{stats.port} ping statistics", file=file)
     print(f"{stats.sent} packets transmitted, {stats.received} received, "
           f"{stats.loss_percent:.1f}% loss", file=file)
 
