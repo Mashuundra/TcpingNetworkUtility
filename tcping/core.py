@@ -9,6 +9,7 @@ from tcping.models import PingResult
 
 class TCPinger:
     """Класс для выполнения TCP пингов."""
+
     def __init__(self, timeout: float = 5.0):
         self.timeout = timeout
 
