@@ -63,10 +63,26 @@ python main.py google.com 80 --count 5 --timeout 2 --verbose
 
 Содержит основную логику TCP-пинга.
 
-установка TCP-соединения
-измерение времени ответа
-обработка сетевых ошибок
-возвращает результат в виде PingResult
+### установка TCP-соединения
+Алгоритм:
+1. Засечь время начала (time.perf_counter())
+2. Попытаться создать сокет и подключиться (socket.create_connection)
+3. Засечь время окончания
+4. При успехе вернуть PingResult(success=True, duration=elapsed)
+5. При ошибке вернуть PingResult с соответствующим сообщением
+   - socket.timeout -> TimeoutError в error_message
+   - socket.gaierror -> ResolveError
+   - ConnectionRefusedError -> NetworkError
+   - Другие -> NetworkError
+
+### Серия TCP соединений с интервалом
+Алгоритм:
+1. Инициализировать пустой список results
+2. Для i от 1 до count:
+   - Вызвать ping_once(host, port)
+   - Добавить результат в список
+   - Если не последняя попытка: time.sleep(interval)
+3. Вернуть список результатов
 
 
 
