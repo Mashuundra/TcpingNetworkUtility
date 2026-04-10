@@ -1,17 +1,15 @@
 """Тесты для моделей данных."""
-import pytest
-from tcping.models import PingResult, Stats
+
 from datetime import datetime
+
+import pytest
+
+from tcping.models import PingResult, Stats
 
 
 def test_ping_result_success():
     """Тест создания успешного результата."""
-    result = PingResult(
-        success=True,
-        host="google.com",
-        port=80,
-        duration=0.123
-    )
+    result = PingResult(success=True, host="google.com", port=80, duration=0.123)
 
     assert result.success is True
     assert result.host == "google.com"
@@ -25,10 +23,7 @@ def test_ping_result_success():
 def test_ping_result_failure():
     """Тест создания неудачного результата."""
     result = PingResult(
-        success=False,
-        host="localhost",
-        port=9999,
-        error_message="Connection refused"
+        success=False, host="localhost", port=9999, error_message="Connection refused"
     )
 
     assert result.success is False
@@ -40,10 +35,7 @@ def test_ping_result_failure():
 def test_ping_result_timeout():
     """Тест определения таймаута."""
     result = PingResult(
-        success=False,
-        host="google.com",
-        port=80,
-        error_message="Connection timeout"
+        success=False, host="google.com", port=80, error_message="Connection timeout"
     )
 
     assert result.is_timeout() is True
@@ -51,10 +43,14 @@ def test_ping_result_timeout():
 
 def test_ping_result_str():
     """Тест строкового представления."""
-    success_result = PingResult(success=True, host="google.com", port=80, duration=0.045)
+    success_result = PingResult(
+        success=True, host="google.com", port=80, duration=0.045
+    )
     assert "45.00ms" in str(success_result)
 
-    fail_result = PingResult(success=False, host="localhost", port=9999, error_message="Refused")
+    fail_result = PingResult(
+        success=False, host="localhost", port=9999, error_message="Refused"
+    )
     assert "Refused" in str(fail_result)
 
 
@@ -113,14 +109,14 @@ def test_stats_to_dict():
     stats = Stats.from_results("google.com", 80, results)
     stats_dict = stats.to_dict()
 
-    assert stats_dict['host'] == "google.com"
-    assert stats_dict['port'] == 80
-    assert stats_dict['sent'] == 2
-    assert stats_dict['received'] == 2
-    assert stats_dict['loss_percent'] == 0.0
-    assert 'min_time_ms' in stats_dict
-    assert 'avg_time_ms' in stats_dict
-    assert 'max_time_ms' in stats_dict
+    assert stats_dict["host"] == "google.com"
+    assert stats_dict["port"] == 80
+    assert stats_dict["sent"] == 2
+    assert stats_dict["received"] == 2
+    assert stats_dict["loss_percent"] == 0.0
+    assert "min_time_ms" in stats_dict
+    assert "avg_time_ms" in stats_dict
+    assert "max_time_ms" in stats_dict
 
 
 def test_stats_str():

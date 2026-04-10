@@ -4,14 +4,8 @@ import json
 from datetime import datetime
 
 from tcping.models import PingResult, Stats
-from tcping.output import (
-    set_output_mode,
-    format_duration,
-    print_result,
-    print_stats,
-    generate_json,
-    print_legend
-)
+from tcping.output import (format_duration, generate_json, print_legend,
+                           print_result, print_stats, set_output_mode)
 
 
 class TestFormatDuration:
@@ -47,12 +41,7 @@ class TestPrintResult:
 
     def test_print_result_success(self, capsys):
         """Вывод успешного соединения."""
-        result = PingResult(
-            success=True,
-            host="google.com",
-            port=80,
-            duration=0.04523
-        )
+        result = PingResult(success=True, host="google.com", port=80, duration=0.04523)
         print_result(result)
         captured = capsys.readouterr()
         assert "Connected to google.com:80 - time=45.23ms" in captured.out
@@ -63,11 +52,13 @@ class TestPrintResult:
             success=False,
             host="localhost",
             port=9999,
-            error_message="connection refused"
+            error_message="connection refused",
         )
         print_result(result)
         captured = capsys.readouterr()
-        assert "Failed to connect to localhost:9999 - connection refused" in captured.out
+        assert (
+            "Failed to connect to localhost:9999 - connection refused" in captured.out
+        )
 
     def test_print_result_debug_mode(self, capsys):
         """Вывод в отладочном режиме с timestamp."""
@@ -77,7 +68,7 @@ class TestPrintResult:
             host="google.com",
             port=80,
             duration=0.04523,
-            timestamp=datetime(2024, 1, 15, 14, 30, 25, 123456)
+            timestamp=datetime(2024, 1, 15, 14, 30, 25, 123456),
         )
         print_result(result)
         captured = capsys.readouterr()
@@ -111,7 +102,7 @@ class TestPrintStats:
             loss_percent=25.0,
             min_time=0.04218,
             avg_time=0.04377,
-            max_time=0.04523
+            max_time=0.04523,
         )
         print_stats(stats)
         captured = capsys.readouterr()
@@ -131,7 +122,7 @@ class TestPrintStats:
             loss_percent=100.0,
             min_time=None,
             avg_time=None,
-            max_time=None
+            max_time=None,
         )
         print_stats(stats)
         captured = capsys.readouterr()
@@ -152,7 +143,7 @@ class TestPrintStats:
             min_time=0.040,
             avg_time=0.050,
             max_time=0.060,
-            std_dev=0.008
+            std_dev=0.008,
         )
         print_stats(stats)
         captured = capsys.readouterr()
@@ -172,7 +163,7 @@ class TestPrintStats:
             min_time=0.04218,
             avg_time=0.04377,
             max_time=0.04523,
-            std_dev=None
+            std_dev=None,
         )
         print_stats(stats)
         captured = capsys.readouterr()
@@ -189,7 +180,9 @@ class TestPrintStats:
         set_output_mode(json_mode=True, verbose=True)
         results = [
             PingResult(success=True, host="google.com", port=80, duration=0.04218),
-            PingResult(success=False, host="google.com", port=80, error_message="timeout"),
+            PingResult(
+                success=False, host="google.com", port=80, error_message="timeout"
+            ),
         ]
         stats = Stats.from_results("google.com", 80, results)
         print_stats(stats)
@@ -218,7 +211,7 @@ class TestGenerateJson:
             loss_percent=25.0,
             min_time=0.04218,
             avg_time=0.04377,
-            max_time=0.04523
+            max_time=0.04523,
         )
         result = generate_json(stats)
         data = json.loads(result)
@@ -242,7 +235,7 @@ class TestGenerateJson:
             loss_percent=100.0,
             min_time=None,
             avg_time=None,
-            max_time=None
+            max_time=None,
         )
         result = generate_json(stats)
         data = json.loads(result)
@@ -256,7 +249,9 @@ class TestGenerateJson:
         set_output_mode(verbose=True)
         results = [
             PingResult(success=True, host="google.com", port=80, duration=0.04218),
-            PingResult(success=False, host="google.com", port=80, error_message="timeout"),
+            PingResult(
+                success=False, host="google.com", port=80, error_message="timeout"
+            ),
         ]
         stats = Stats.from_results("google.com", 80, results)
         result = generate_json(stats, results)

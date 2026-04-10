@@ -1,19 +1,21 @@
 """Тесты для парсинга командной строки."""
-import pytest
+
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from tcping.cli import (
-    parse_args, validate_port, validate_count,
-    validate_interval, validate_timeout, parse_hosts_file
-)
-from tcping.exceptions import ConfigurationError, InvalidPortError, HostsFileError
+
+import pytest
+
+from tcping.cli import (parse_args, parse_hosts_file, validate_count,
+                        validate_interval, validate_port, validate_timeout)
+from tcping.exceptions import (ConfigurationError, HostsFileError,
+                               InvalidPortError)
 
 
 def test_parse_args_single_host():
     """Тест парсинга аргументов с одним хостом."""
-    args = parse_args(['google.com', '80'])
+    args = parse_args(["google.com", "80"])
 
-    assert args.host == 'google.com'
+    assert args.host == "google.com"
     assert args.port == 80
     assert args.count == 4
     assert args.interval == 1.0
@@ -25,16 +27,22 @@ def test_parse_args_single_host():
 
 def test_parse_args_with_options():
     """Тест парсинга аргументов с опциями."""
-    args = parse_args([
-        'google.com', '443',
-        '--count', '10',
-        '--interval', '0.5',
-        '--timeout', '3',
-        '--verbose',
-        '--debug'
-    ])
+    args = parse_args(
+        [
+            "google.com",
+            "443",
+            "--count",
+            "10",
+            "--interval",
+            "0.5",
+            "--timeout",
+            "3",
+            "--verbose",
+            "--debug",
+        ]
+    )
 
-    assert args.host == 'google.com'
+    assert args.host == "google.com"
     assert args.port == 443
     assert args.count == 10
     assert args.interval == 0.5
@@ -45,8 +53,10 @@ def test_parse_args_with_options():
 
 def test_parse_args_missing_port():
     """Тест ошибки при отсутствии порта."""
-    with pytest.raises(ConfigurationError, match="Port is required"):
-        parse_args(['google.com'])
+    with pytest.raises(
+        ConfigurationError, match="Either specify host and port, or use --hosts-file"
+    ):
+        parse_args(["google.com"])
 
 
 def test_validate_port_valid():
@@ -114,7 +124,9 @@ def test_validate_timeout_invalid():
 
 def test_parse_hosts_file_valid():
     """Тест парсинга валидного файла с хостами."""
-    with NamedTemporaryFile(mode='w', suffix='.txt', delete=False, encoding='utf-8') as f:
+    with NamedTemporaryFile(
+        mode="w", suffix=".txt", delete=False, encoding="utf-8"
+    ) as f:
         f.write("google.com 80\n")
         f.write("ya.ru 443\n")
         f.write("# This is a comment\n")
@@ -125,10 +137,10 @@ def test_parse_hosts_file_valid():
     try:
         hosts = parse_hosts_file(temp_file)
         assert len(hosts) == 4
-        assert ('google.com', 80) in hosts
-        assert ('ya.ru', 443) in hosts
-        assert ('github.com', 22) in hosts
-        assert ('localhost', 8080) in hosts
+        assert ("google.com", 80) in hosts
+        assert ("ya.ru", 443) in hosts
+        assert ("github.com", 22) in hosts
+        assert ("localhost", 8080) in hosts
     finally:
         temp_file.unlink()
 
@@ -141,7 +153,7 @@ def test_parse_hosts_file_not_found():
 
 def test_parse_hosts_file_invalid_format():
     """Тест ошибки при неверном формате."""
-    with NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+    with NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
         f.write("invalid_line\n")
         temp_file = Path(f.name)
 
@@ -154,7 +166,7 @@ def test_parse_hosts_file_invalid_format():
 
 def test_parse_hosts_file_invalid_port():
     """Тест ошибки при неверном порте."""
-    with NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+    with NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
         f.write("google.com 99999\n")
         temp_file = Path(f.name)
 

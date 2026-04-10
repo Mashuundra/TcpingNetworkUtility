@@ -12,7 +12,9 @@ JSON_MODE = False
 DEBUG_MODE = False
 
 
-def set_output_mode(verbose: bool = False, json_mode: bool = False, debug: bool = False) -> None:
+def set_output_mode(
+    verbose: bool = False, json_mode: bool = False, debug: bool = False
+) -> None:
     """Устанавливает глобальные режимы вывода."""
     global VERBOSE_MODE, JSON_MODE, DEBUG_MODE
     VERBOSE_MODE = verbose
@@ -40,7 +42,9 @@ def print_result(result: PingResult, file: TextIO = None) -> None:
         time_str = format_duration(result.duration)
         line = f"Connected to {result.host}:{result.port} - time={time_str}"
     else:
-        line = f"Failed to connect to {result.host}:{result.port} - {result.error_message}"
+        line = (
+            f"Failed to connect to {result.host}:{result.port} - {result.error_message}"
+        )
 
     # В отладочном режиме добавляем timestamp
     if DEBUG_MODE:
@@ -62,9 +66,12 @@ def print_stats(stats: Stats, file: TextIO = None) -> None:
 
     # Обычный текстовый вывод
     print(file=file)
-    print(f"{stats.host}:{stats.port} ping statistics", file=file)
-    print(f"{stats.sent} packets transmitted, {stats.received} received, "
-          f"{stats.loss_percent:.1f}% loss", file=file)
+    print(f"--- {stats.host}:{stats.port} ping statistics ---", file=file)
+    print(
+        f"{stats.sent} packets transmitted, {stats.received} received, "
+        f"{stats.loss_percent:.1f}% loss",
+        file=file,
+    )
 
     if stats.received > 0:
         min_str = format_duration(stats.min_time)
@@ -89,11 +96,19 @@ def generate_json(stats: Stats, results: Optional[List[PingResult]] = None) -> s
             "received": stats.received,
             "lost": stats.lost,
             "loss_percent": round(stats.loss_percent, 2),
-            "min_time_ms": round(stats.min_time * 1000, 2) if stats.min_time is not None else None,
-            "avg_time_ms": round(stats.avg_time * 1000, 2) if stats.avg_time is not None else None,
-            "max_time_ms": round(stats.max_time * 1000, 2) if stats.max_time is not None else None,
-            "std_dev_ms": round(stats.std_dev * 1000, 2) if stats.std_dev is not None else None,
-        }
+            "min_time_ms": (
+                round(stats.min_time * 1000, 2) if stats.min_time is not None else None
+            ),
+            "avg_time_ms": (
+                round(stats.avg_time * 1000, 2) if stats.avg_time is not None else None
+            ),
+            "max_time_ms": (
+                round(stats.max_time * 1000, 2) if stats.max_time is not None else None
+            ),
+            "std_dev_ms": (
+                round(stats.std_dev * 1000, 2) if stats.std_dev is not None else None
+            ),
+        },
     }
 
     # Если есть результаты и verbose режим – добавляем их

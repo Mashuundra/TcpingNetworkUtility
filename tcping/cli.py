@@ -4,118 +4,78 @@ import argparse
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from tcping.exceptions import ConfigurationError, InvalidPortError, HostsFileError
+from tcping.exceptions import (ConfigurationError, HostsFileError,
+                               InvalidPortError)
 
 
 def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
-    """Парсит аргументы командной строки.
-
-    Args:
-        args: Список аргументов (None = sys.argv[1:])
-
-    Returns:
-        Namespace с атрибутами:
-        - host: str | None - целевой хост
-        - port: int | None - целевой порт
-        - hosts_file: Path | None - путь к файлу с хостами
-        - count: int - количество попыток (по умолчанию 4)
-        - interval: float - интервал между попытками в секундах (по умолчанию 1.0)
-        - timeout: float - таймаут соединения в секундах (по умолчанию 5.0)
-        - debug: bool - режим отладки
-        - json: bool - вывод в JSON формате
-        - verbose: bool - подробный вывод
-
-    Raises:
-        ConfigurationError: При конфликтующих или некорректных параметрах
-        InvalidPortError: При невалидном порте
-        HostsFileError: При проблемах с файлом хостов
-    """
+    """Парсит аргументы командной строки."""
     parser = argparse.ArgumentParser(
-        description='TCP ping utility - check TCP port availability',
-        epilog='Examples:\n'
-               '  python main.py google.com 80\n'
-               '  python main.py google.com 80 --count 10 --interval 0.5\n'
-               '  python main.py --hosts-file hosts.txt --json\n'
-               '  python main.py ya.ru 443 --timeout 3 --verbose',
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        description="TCP ping utility - check TCP port availability",
+        epilog="Examples:\n"
+        "  python main.py google.com 80\n"
+        "  python main.py google.com 80 --count 10 --interval 0.5\n"
+        "  python main.py --hosts-file hosts.txt --json\n"
+        "  python main.py ya.ru 443 --timeout 3 --verbose",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    # Режимы работы (группа mutex) пользователь может выбрать только один вариант из нескольких
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument(
-        'host',
-        nargs='?',
-        help='Target host (IP or domain name)'
-    )
-
-    group.add_argument(
-        '--hosts-file',
-        '-f',
-        type=Path,
-        help='File with list of hosts (one per line: "host port")'
-    )
+    # Режимы работы - НЕ делаем группу required, чтобы argparse сам обрабатывал ошибки
+    parser.add_argument("host", nargs="?", help="Target host (IP or domain name)")
 
     parser.add_argument(
-        'port',
-        nargs='?',
-        type=int,
-        help='Target port (1-65535)'
+        "--hosts-file",
+        "-f",
+        type=Path,
+        help='File with list of hosts (one per line: "host port")',
     )
+
+    parser.add_argument("port", nargs="?", type=int, help="Target port (1-65535)")
 
     # Опции
     parser.add_argument(
-        '--count',
-        '-c',
+        "--count",
+        "-c",
         type=int,
         default=4,
-        help='Number of ping attempts (default: 4)'
+        help="Number of ping attempts (default: 4)",
     )
 
     parser.add_argument(
-        '--interval',
-        '-i',
+        "--interval",
+        "-i",
         type=float,
         default=1.0,
-        help='Interval between attempts in seconds (default: 1.0)'
+        help="Interval between attempts in seconds (default: 1.0)",
     )
 
     parser.add_argument(
-        '--timeout',
-        '-t',
+        "--timeout",
+        "-t",
         type=float,
         default=5.0,
-        help='Connection timeout in seconds (default: 5.0)'
+        help="Connection timeout in seconds (default: 5.0)",
     )
 
     parser.add_argument(
-        '--debug',
-        action='store_true',
-        help='Enable debug mode with detailed error messages'
+        "--debug",
+        action="store_true",
+        help="Enable debug mode with detailed error messages",
     )
+
+    parser.add_argument("--json", action="store_true", help="Output in JSON format")
 
     parser.add_argument(
-        '--json',
-        action='store_true',
-        help='Output in JSON format'
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Verbose output with detailed information",
     )
 
-    parser.add_argument(
-        '--verbose',
-        '-v',
-        action='store_true',
-        help='Verbose output with detailed information'
-    )
+    # Парсим аргументы - пусть argparse сам обрабатывает ошибки
+    parsed_args = parser.parse_args(args)
 
-    # Парсим аргументы
-    try:
-        parsed_args = parser.parse_args(args)
-    except SystemExit as e:
-        if e.code == 0:
-            raise
-        # argparse вызвал sys.exit() при ошибке
-        raise ConfigurationError("Invalid command line arguments")
-
-    # Валидация
+    # Дополнительная валидация после парсинга
     _validate_args(parsed_args)
 
     return parsed_args
@@ -123,12 +83,19 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
 
 def _validate_args(args: argparse.Namespace) -> None:
     """Валидация аргументов после парсинга."""
+    # Проверка что указан либо хост+порт, либо файл
+    has_host = args.host is not None
+    has_port = args.port is not None
+    has_file = args.hosts_file is not None
 
-    # Проверка режима с одним хостом
-    if args.host and args.port is None:
-        raise ConfigurationError("Port is required when specifying host")
+    if not has_file and not (has_host and has_port):
+        raise ConfigurationError("Either specify host and port, or use --hosts-file")
 
-    if args.host and args.port:
+    # Проверка что не указаны оба режима одновременно
+    if has_file and (has_host or has_port):
+        raise ConfigurationError("Cannot specify both --hosts-file and host/port")
+
+    if has_host and has_port:
         validate_port(args.port)
 
     # Проверка режима с файлом
@@ -145,15 +112,7 @@ def _validate_args(args: argparse.Namespace) -> None:
 
 
 def validate_port(port: int) -> None:
-    """
-    Проверяет корректность порта.
-
-    Args:
-        port: Номер порта
-
-    Raises:
-        InvalidPortError: Если порт не в диапазоне 1-65535
-    """
+    """Проверяет корректность порта."""
     if not isinstance(port, int):
         raise InvalidPortError(f"Port must be an integer, got {type(port).__name__}")
 
@@ -162,63 +121,25 @@ def validate_port(port: int) -> None:
 
 
 def validate_count(count: int) -> None:
-    """
-    Проверяет количество попыток.
-
-    Args:
-        count: Количество попыток
-
-    Raises:
-        ConfigurationError: Если count < 1
-    """
+    """Проверяет количество попыток."""
     if count < 1:
         raise ConfigurationError(f"Count must be at least 1, got {count}")
 
 
 def validate_interval(interval: float) -> None:
-    """
-    Проверяет интервал между попытками.
-
-    Args:
-        interval: Интервал в секундах
-
-    Raises:
-        ConfigurationError: Если interval <= 0
-    """
+    """Проверяет интервал между попытками."""
     if interval <= 0:
         raise ConfigurationError(f"Interval must be greater than 0, got {interval}")
 
 
 def validate_timeout(timeout: float) -> None:
-    """
-    Проверяет таймаут соединения.
-
-    Args:
-        timeout: Таймаут в секундах
-
-    Raises:
-        ConfigurationError: Если timeout <= 0
-    """
+    """Проверяет таймаут соединения."""
     if timeout <= 0:
         raise ConfigurationError(f"Timeout must be greater than 0, got {timeout}")
 
 
 def parse_hosts_file(file_path: Path) -> List[Tuple[str, int]]:
-    """
-    Парсит файл со списком хостов.
-
-    Формат файла: каждая строка содержит "хост порт"
-    Строки начинающиеся с # игнорируются.
-
-    Args:
-        file_path: Путь к файлу
-
-    Returns:
-        List[Tuple[str, int]]: Список пар (хост, порт)
-
-    Raises:
-        HostsFileError: Если файл не найден, нет прав доступа или некорректный формат
-    """
+    """Парсит файл со списком хостов."""
     if not file_path.exists():
         raise HostsFileError(f"File not found: {file_path}")
 
@@ -228,21 +149,18 @@ def parse_hosts_file(file_path: Path) -> List[Tuple[str, int]]:
     hosts = []
 
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            # нумерует строки при чтении файла, начиная с 1
+        with open(file_path, "r", encoding="utf-8") as f:
             for line_num, line in enumerate(f, 1):
                 line = line.strip()
 
-                # Пропускаем пустые строки и комментарии
-                if not line or line.startswith('#'):
+                if not line or line.startswith("#"):
                     continue
 
-                # Разбираем строку: "host port" или "host:port" или "host port"
                 parts = line.split()
                 if len(parts) == 2:
                     host, port_str = parts
-                elif len(parts) == 1 and ':' in parts[0]:
-                    host, port_str = parts[0].split(':', 1)
+                elif len(parts) == 1 and ":" in parts[0]:
+                    host, port_str = parts[0].split(":", 1)
                 else:
                     raise HostsFileError(
                         f"Invalid format at line {line_num}: {line}\n"

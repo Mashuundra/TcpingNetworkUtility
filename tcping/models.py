@@ -1,9 +1,9 @@
 """Структуры данных для TCP ping."""
 
-from dataclasses import dataclass, field
-from typing import Optional, List
-from datetime import datetime
 import statistics
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import List, Optional
 
 
 @dataclass
@@ -19,6 +19,7 @@ class PingResult:
         error_message: Сообщение об ошибке (None при успехе)
         timestamp: Время попытки (автоматически)
     """
+
     success: bool
     host: str
     port: int
@@ -30,12 +31,14 @@ class PingResult:
         """Возвращает True, если ошибка связана с таймаутом."""
         if self.success or not self.error_message:
             return False
-        return 'timeout' in self.error_message.lower()
+        return "timeout" in self.error_message.lower()
 
     def __str__(self) -> str:
         """Строковое представление для логов."""
         if self.success:
-            return f"Connected to {self.host}:{self.port} in {self.duration * 1000:.2f}ms"
+            return (
+                f"Connected to {self.host}:{self.port} in {self.duration * 1000:.2f}ms"
+            )
         return f"Failed to connect to {self.host}:{self.port} - {self.error_message}"
 
 
@@ -57,6 +60,7 @@ class Stats:
         std_dev: Стандартное отклонение (опционально)
         results: Все результаты попыток (опционально, для детального вывода)
     """
+
     host: str
     port: int
     sent: int
@@ -70,7 +74,7 @@ class Stats:
     results: Optional[List[PingResult]] = None
 
     @classmethod
-    def from_results(cls, host: str, port: int, results: List[PingResult]) -> 'Stats':
+    def from_results(cls, host: str, port: int, results: List[PingResult]) -> "Stats":
         """
         Создает статистику из списка результатов.
 
@@ -126,22 +130,22 @@ class Stats:
             avg_time=avg_time,
             max_time=max_time,
             std_dev=std_dev,
-            results=results if results else None
+            results=results if results else None,
         )
 
     def to_dict(self) -> dict:
         """Преобразует в словарь для JSON сериализации."""
         return {
-            'host': self.host,
-            'port': self.port,
-            'sent': self.sent,
-            'received': self.received,
-            'lost': self.lost,
-            'loss_percent': round(self.loss_percent, 2),
-            'min_time_ms': round(self.min_time * 1000, 2) if self.min_time else None,
-            'avg_time_ms': round(self.avg_time * 1000, 2) if self.avg_time else None,
-            'max_time_ms': round(self.max_time * 1000, 2) if self.max_time else None,
-            'std_dev_ms': round(self.std_dev * 1000, 2) if self.std_dev else None,
+            "host": self.host,
+            "port": self.port,
+            "sent": self.sent,
+            "received": self.received,
+            "lost": self.lost,
+            "loss_percent": round(self.loss_percent, 2),
+            "min_time_ms": round(self.min_time * 1000, 2) if self.min_time else None,
+            "avg_time_ms": round(self.avg_time * 1000, 2) if self.avg_time else None,
+            "max_time_ms": round(self.max_time * 1000, 2) if self.max_time else None,
+            "std_dev_ms": round(self.std_dev * 1000, 2) if self.std_dev else None,
         }
 
     def __str__(self) -> str:

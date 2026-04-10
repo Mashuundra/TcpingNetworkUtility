@@ -25,7 +25,7 @@ class TCPinger:
                     host=host,
                     port=port,
                     duration=elapsed,
-                    error_message=None
+                    error_message=None,
                 )
 
         except socket.timeout:
@@ -34,7 +34,7 @@ class TCPinger:
                 host=host,
                 port=port,
                 duration=None,
-                error_message=f"timeout after {self.timeout}s"
+                error_message=f"timeout after {self.timeout}s",
             )
 
         except socket.gaierror as e:
@@ -43,7 +43,7 @@ class TCPinger:
                 host=host,
                 port=port,
                 duration=None,
-                error_message=f"DNS resolution failed: {e}"
+                error_message=f"DNS resolution failed: {e}",
             )
 
         except ConnectionRefusedError:
@@ -52,7 +52,7 @@ class TCPinger:
                 host=host,
                 port=port,
                 duration=None,
-                error_message="connection refused"
+                error_message="connection refused",
             )
 
         except socket.error as e:
@@ -61,7 +61,7 @@ class TCPinger:
                 host=host,
                 port=port,
                 duration=None,
-                error_message=f"network error: {e}"
+                error_message=f"network error: {e}",
             )
 
         except Exception as e:
@@ -70,10 +70,12 @@ class TCPinger:
                 host=host,
                 port=port,
                 duration=None,
-                error_message=f"unexpected error: {e}"
+                error_message=f"unexpected error: {e}",
             )
 
-    def ping_many(self, host: str, port: int, count: int, interval: float = 1.0) -> List[PingResult]:
+    def ping_many(
+        self, host: str, port: int, count: int, interval: float = 1.0
+    ) -> List[PingResult]:
         """Выполняет серию TCP соединений с интервалом."""
         results = []
 
@@ -86,7 +88,9 @@ class TCPinger:
 
         return results
 
-    def ping_hosts_from_file(self, hosts_file_path: str, count: int, interval: float) -> dict:
+    def ping_hosts_from_file(
+        self, hosts_file_path: str, count: int, interval: float
+    ) -> dict:
         """Выполняет пинг для списка хостов из файла."""
         from tcping.cli import parse_hosts_file
         from tcping.models import Stats
