@@ -1,0 +1,13 @@
+# Зависимости проекта tcping
+
+# Тестирование
+pytest==7.4.3
+pytest-cov==4.1.0
+
+# CI
+pytest-mock>=3.10.0
+flake8>=7.0.0
+flake8-docstrings>=1.7.0
+flake8-quotes>=3.4.0
+black>=24.0.0
+pre-commit>=3.6.0
