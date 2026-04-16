@@ -5,6 +5,7 @@
 """
 
 import sys
+import time
 import traceback
 from typing import List, Tuple
 
@@ -72,48 +73,58 @@ def main():
 
     set_output_mode(verbose=args.verbose, json_mode=args.json, debug=args.debug)
 
-    try:
-        # Пакетный режим (из файла)
-        if args.hosts_file:
-            process_packet_mode(args)
+    # Watchdog режим
+    watch_mode = getattr(args, 'watch', False)
+    watch_interval = getattr(args, 'watch_interval', 5)
 
-        # Одиночный режим
-        elif args.host and args.port:
-            results, stats = process_single_target(args.host, args.port, args)
+    while True:
+        try:
+            # Пакетный режим (из файла)
+            if args.hosts_file:
+                process_packet_mode(args)
 
-            for result in results:
-                print_result(result)
+            # Одиночный режим
+            elif args.host and args.port:
+                results, stats = process_single_target(args.host, args.port, args)
 
-            print_stats(stats)
+                for result in results:
+                    print_result(result)
 
-        else:
-            print("Ошибка: укажите хост и порт или используйте --file", file=sys.stderr)
-            print("Для справки используйте: python main.py --help", file=sys.stderr)
+                print_stats(stats)
+
+            else:
+                print("Ошибка: укажите хост и порт или используйте --file", file=sys.stderr)
+                print("Для справки используйте: python main.py --help", file=sys.stderr)
+                sys.exit(1)
+
+        except ConfigurationError as e:
+            print(f"Ошибка конфигурации: {e}", file=sys.stderr)
+            if args.debug:
+                traceback.print_exc()
             sys.exit(1)
 
-    except ConfigurationError as e:
-        print(f"Ошибка конфигурации: {e}", file=sys.stderr)
-        if args.debug:
-            traceback.print_exc()
-        sys.exit(1)
+        except TCpingError as e:
+            print(f"Ошибка: {e}", file=sys.stderr)
+            if args.debug:
+                traceback.print_exc()
+            sys.exit(1)
 
-    except TCpingError as e:
-        print(f"Ошибка: {e}", file=sys.stderr)
-        if args.debug:
-            traceback.print_exc()
-        sys.exit(1)
+        except KeyboardInterrupt:
+            print("\nПрервано пользователем", file=sys.stderr)
+            sys.exit(130)
 
-    except KeyboardInterrupt:
-        print("\nПрервано пользователем", file=sys.stderr)
-        sys.exit(130)
+        except Exception as e:
+            print(f"Внутренняя ошибка: {e}", file=sys.stderr)
+            if args.debug:
+                traceback.print_exc()
+            else:
+                print("Для подробностей запустите с ключом --debug", file=sys.stderr)
+            sys.exit(1)
 
-    except Exception as e:
-        print(f"Внутренняя ошибка: {e}", file=sys.stderr)
-        if args.debug:
-            traceback.print_exc()
-        else:
-            print("Для подробностей запустите с ключом --debug", file=sys.stderr)
-        sys.exit(1)
+        if not watch_mode:
+            break
+    print(f"\n--- Waiting {watch_interval} seconds ---\n")
+    time.sleep(watch_interval)
 
 
 if __name__ == "__main__":
