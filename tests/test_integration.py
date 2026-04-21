@@ -73,10 +73,9 @@ class TestIntegrationSingleHost:
             with pytest.raises(SystemExit) as exc_info:
                 tcping_main.main()
 
-            # Наша валидация возвращает код 1
-            assert exc_info.value.code == 1
-            captured = capsys.readouterr()
-            assert "Either specify host and port, or use --hosts-file" in captured.err
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Specify host and port, --hosts-file, or --targets" in captured.err
 
     def test_invalid_port_range(self, capsys):
         """Тест невалидного порта."""
@@ -352,7 +351,7 @@ class TestIntegrationEdgeCases:
 
                 assert exc_info.value.code == 130
                 captured = capsys.readouterr()
-                assert "Прервано пользователем" in captured.err
+                assert "Interrupted by user" in captured.err
 
     def test_network_error_handling(self, capsys):
         """Тест обработки сетевых ошибок - DNS имя не существует."""
@@ -386,13 +385,9 @@ class TestIntegrationEdgeCases:
             with pytest.raises(SystemExit) as exc_info:
                 tcping_main.main()
 
-            # Наша валидация возвращает код 1
             assert exc_info.value.code == 1
             captured = capsys.readouterr()
-            assert (
-                "Cannot specify both" in captured.err
-                or "нельзя указывать одновременно" in captured.err
-            )
+            assert "Cannot specify multiple input sources simultaneously" in captured.err
 
     def test_help_argument(self, capsys):
         """Тест флага --help."""

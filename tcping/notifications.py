@@ -12,6 +12,7 @@ from collections import defaultdict
 @dataclass
 class ServiceStatus:
     """Статус сервиса для уведомлений."""
+
     host: str
     port: int
     is_healthy: bool
@@ -20,6 +21,7 @@ class ServiceStatus:
     timestamp: datetime = None
 
     def __post_init__(self):
+        """Init."""
         if self.timestamp is None:
             self.timestamp = datetime.now()
 
@@ -139,9 +141,9 @@ class Notifier:
 
             <h3>Summary</h3>
             <ul>
-                <li>✅ Healthy: {len(healthy)}</li>
-                <li>❌ Unhealthy: {len(unhealthy)}</li>
-                <li>📊 Total: {len(statuses)}</li>
+                <li> Healthy: {len(healthy)}</li>
+                <li> Unhealthy: {len(unhealthy)}</li>
+                <li> Total: {len(statuses)}</li>
             </ul>
         """
 
@@ -192,7 +194,7 @@ class Notifier:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         healthy = sum(1 for s in statuses if s.is_healthy)
 
-        subject = f"📊 Service Monitor Started - {healthy}/{len(statuses)} healthy - {timestamp}"
+        subject = f" Service Monitor Started - {healthy}/{len(statuses)} healthy - {timestamp}"
 
         html_body = f"""
         <html>

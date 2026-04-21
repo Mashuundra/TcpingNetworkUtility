@@ -54,7 +54,7 @@ def test_parse_args_with_options():
 def test_parse_args_missing_port():
     """Тест ошибки при отсутствии порта."""
     with pytest.raises(
-        ConfigurationError, match="Either specify host and port, or use --hosts-file"
+        ConfigurationError, match="Specify host and port, --hosts-file, or --targets"
     ):
         parse_args(["google.com"])
 
