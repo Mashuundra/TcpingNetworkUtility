@@ -255,6 +255,7 @@ class TestTCPingerKnock:
     """Тесты для метода knock."""
 
     def setup_method(self):
+        """Инициализирует экземпляр TCPinger перед каждым тестом."""
         self.pinger = TCPinger(timeout=5.0)
 
     @patch("tcping.core.TCPinger._resolve_host")
