@@ -20,6 +20,7 @@ class TCPinger:
 
     def __init__(self, timeout: float = 5.0):
         self.timeout = timeout
+        self.is_windows = sys.platform == 'win32'
 
     def _calculate_checksum(self, data: bytes) -> int:
         """Рассчёт контрольной суммы для TCP-пакета."""
@@ -54,8 +55,26 @@ class TCPinger:
                 print(f"[DEBUG] DNS resolution failed for {host}: {e}", file=sys.stderr)
             return []
 
+    def _send_syn_windows(self, ip: str, port: int) -> bool:
+        """Отправляет SYN-пакет на Windows используя обычный сокет."""
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1.0)
+            sock.connect_ex((ip, port))
+            sock.close()
+            if DEBUG_MODE:
+                print(f"[DEBUG] Windows knock sent to {ip}:{port}", file=sys.stderr)
+            return True
+        except Exception as e:
+            if DEBUG_MODE:
+                print(f"[DEBUG] Windows knock failed to {ip}:{port}: {e}", file=sys.stderr)
+            return False
+
     def _send_syn(self, ip: str, port: int, family: int) -> bool:
         """Отправляет один SYN-пакет на указанный порт."""
+        if self.is_windows:
+            return self._send_syn_windows(ip, port)
+
         try:
             if family == socket.AF_INET:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
@@ -134,9 +153,11 @@ class TCPinger:
             print(f"[DEBUG] Port knocking completed", file=sys.stderr)
         return True
 
-    # IPv4
     def _syn_scan_ipv4(self, ip: str, port: int) -> tuple:
         """IPv4 SYN scan через raw socket."""
+        if self.is_windows:
+            return self._connect_scan_ipv4(ip, port)
+
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
@@ -191,9 +212,28 @@ class TCPinger:
             sock.close()
             return (False, None, f"error: {e}")
 
-    # IPv6
+    def _connect_scan_ipv4(self, ip: str, port: int) -> tuple:
+        """Обычный connect scan для Windows."""
+        start = time.perf_counter()
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(self.timeout)
+            sock.connect((ip, port))
+            elapsed = time.perf_counter() - start
+            sock.close()
+            return (True, elapsed, None)
+        except socket.timeout:
+            return (False, None, f"timeout after {self.timeout}s")
+        except ConnectionRefusedError:
+            return (False, None, "connection refused")
+        except Exception as e:
+            return (False, None, f"error: {e}")
+
     def _syn_scan_ipv6(self, ip: str, port: int) -> tuple:
         """IPv6 SYN scan через raw socket."""
+        if self.is_windows:
+            return self._connect_scan_ipv6(ip, port)
+
         try:
             sock = socket.socket(socket.AF_INET6, socket.SOCK_RAW, socket.IPPROTO_TCP)
             try:
@@ -203,20 +243,7 @@ class TCPinger:
         except (PermissionError, OSError):
             if DEBUG_MODE:
                 print(f"[DEBUG] IPv6 raw socket not available, using connect+RST", file=sys.stderr)
-            start = time.perf_counter()
-            try:
-                s = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-                s.settimeout(self.timeout)
-                s.connect((ip, port))
-                elapsed = time.perf_counter() - start
-                s.close()
-                return (True, elapsed, None)
-            except socket.timeout:
-                return (False, None, f"timeout after {self.timeout}s")
-            except ConnectionRefusedError:
-                return (False, None, "connection refused")
-            except Exception as e:
-                return (False, None, f"error: {e}")
+            return self._connect_scan_ipv6(ip, port)
 
         src_port = random.randint(10000, 65000)
         seq = random.randint(0, 2 ** 31 - 1)
@@ -262,12 +289,28 @@ class TCPinger:
             sock.close()
             return (False, None, f"error: {e}")
 
+    def _connect_scan_ipv6(self, ip: str, port: int) -> tuple:
+        """Обычный connect scan для IPv6 на Windows."""
+        start = time.perf_counter()
+        try:
+            sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+            sock.settimeout(self.timeout)
+            sock.connect((ip, port))
+            elapsed = time.perf_counter() - start
+            sock.close()
+            return (True, elapsed, None)
+        except socket.timeout:
+            return (False, None, f"timeout after {self.timeout}s")
+        except ConnectionRefusedError:
+            return (False, None, "connection refused")
+        except Exception as e:
+            return (False, None, f"error: {e}")
+
     def ping_once(self, host: str, port: int, knock_ports: Optional[List[int]] = None) -> PingResult:
         """Выполняет одну попытку."""
         if DEBUG_MODE:
-            print(f"[DEBUG] Starting SYN/ACK scan to {host}:{port}", file=sys.stderr)
+            print(f"[DEBUG] Starting scan to {host}:{port}", file=sys.stderr)
 
-        # Port knocking
         if knock_ports:
             if DEBUG_MODE:
                 print(f"[DEBUG] Port knocking sequence: {knock_ports}", file=sys.stderr)
@@ -296,7 +339,7 @@ class TCPinger:
 
             if success:
                 if DEBUG_MODE:
-                    print(f"[DEBUG] SYN-ACK received from {ip} in {elapsed * 1000:.2f}ms", file=sys.stderr)
+                    print(f"[DEBUG] Connected to {ip} in {elapsed * 1000:.2f}ms", file=sys.stderr)
                 return PingResult(
                     success=True,
                     host=host,

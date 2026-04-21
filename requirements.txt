@@ -1,13 +1,12 @@
-# Зависимости проекта tcping
+# Core dependencies
+# (no external dependencies needed for basic functionality)
 
-# Тестирование
-pytest==7.4.3
-pytest-cov==4.1.0
+# Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
 
-# CI
-pytest-mock>=3.10.0
-flake8>=7.0.0
+# Code quality
+flake8>=6.0.0
 flake8-docstrings>=1.7.0
-flake8-quotes>=3.4.0
-black>=24.0.0
-pre-commit>=3.6.0
+flake8-quotes>=3.3.0
+bandit>=1.7.0
