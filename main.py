@@ -16,10 +16,30 @@ from tcping.models import PingResult, Stats
 from tcping.output import print_result, print_stats, set_output_mode
 
 
-def process_single_target(host: str, port: int, args) -> Tuple[List[PingResult], Stats]:
-    """Выполняет серию пингов для одной цели."""
+def process_single_target_stream(host: str, port: int, args, knock_ports: List[int] = None) -> Tuple[
+    List[PingResult], Stats]:
+    """Выполняет серию пингов с мгновенным выводом каждой попытки."""
     pinger = TCPinger(timeout=args.timeout)
-    results = pinger.ping_many(host, port, count=args.count, interval=args.interval)
+
+    def stream_callback(result: PingResult) -> None:
+        if not args.json:
+            print_result(result)
+
+    results = pinger.ping_many(
+        host, port,
+        count=args.count,
+        interval=args.interval,
+        knock_ports=knock_ports,
+        stream_callback=stream_callback
+    )
+    stats = Stats.from_results(host, port, results)
+    return results, stats
+
+
+def process_single_target(host: str, port: int, args, knock_ports: List[int] = None) -> Tuple[List[PingResult], Stats]:
+    """Выполняет серию пингов без мгновенного вывода (для JSON)."""
+    pinger = TCPinger(timeout=args.timeout)
+    results = pinger.ping_many(host, port, count=args.count, interval=args.interval, knock_ports=knock_ports)
     stats = Stats.from_results(host, port, results)
     return results, stats
 
@@ -38,20 +58,47 @@ def process_packet_mode(args) -> None:
         print("Ошибка: файл не содержит корректных записей", file=sys.stderr)
         sys.exit(1)
 
+    knock_ports = getattr(args, 'knock', None)
+
     for host, port in targets:
         if not args.json:
-            print(f"\n{host}:{port} tcping statistics")
+            print(f"\n--- {host}:{port} tcping statistics ---")
 
         try:
-            results, stats = process_single_target(host, port, args)
-
             if not args.json:
-                for result in results:
-                    print_result(result)
+                results, stats = process_single_target_stream(host, port, args, knock_ports)
                 print_stats(stats)
             else:
+                results, stats = process_single_target(host, port, args, knock_ports)
                 from tcping.output import generate_json
+                print(generate_json(stats, results if args.verbose else None))
 
+        except Exception as e:
+            print(f"Ошибка при обработке {host}:{port}: {e}", file=sys.stderr)
+            if args.debug:
+                traceback.print_exc()
+            continue
+
+
+def process_targets_mode(args) -> None:
+    """Режим нескольких IP/портов из командной строки."""
+    targets = getattr(args, 'targets', [])
+    if not targets:
+        return
+
+    knock_ports = getattr(args, 'knock', None)
+
+    for host, port in targets:
+        if not args.json:
+            print(f"\n--- {host}:{port} tcping statistics ---")
+
+        try:
+            if not args.json:
+                results, stats = process_single_target_stream(host, port, args, knock_ports)
+                print_stats(stats)
+            else:
+                results, stats = process_single_target(host, port, args, knock_ports)
+                from tcping.output import generate_json
                 print(generate_json(stats, results if args.verbose else None))
 
         except Exception as e:
@@ -65,7 +112,6 @@ def main():
     try:
         args = parse_args()
     except SystemExit as e:
-        # argparse уже вывел сообщение об ошибке
         sys.exit(e.code)
     except Exception as e:
         print(f"Ошибка парсинга аргументов: {e}", file=sys.stderr)
@@ -74,8 +120,8 @@ def main():
     set_output_mode(verbose=args.verbose, json_mode=args.json, debug=args.debug)
 
     # Watchdog режим
-    watch_mode = getattr(args, 'watch', False)
-    watch_interval = getattr(args, 'watch_interval', 5)
+    watch_mode = getattr(args, "watch", False)
+    watch_interval = getattr(args, "watch_interval", 5)
 
     while True:
         try:
@@ -83,14 +129,20 @@ def main():
             if args.hosts_file:
                 process_packet_mode(args)
 
+            # Режим нескольких IP/портов
+            elif hasattr(args, 'targets') and args.targets:
+                process_targets_mode(args)
+
             # Одиночный режим
             elif args.host and args.port:
-                results, stats = process_single_target(args.host, args.port, args)
-
-                for result in results:
-                    print_result(result)
-
-                print_stats(stats)
+                knock_ports = getattr(args, 'knock', None)
+                if not args.json:
+                    results, stats = process_single_target_stream(args.host, args.port, args, knock_ports)
+                    print_stats(stats)
+                else:
+                    results, stats = process_single_target(args.host, args.port, args, knock_ports)
+                    from tcping.output import generate_json
+                    print(generate_json(stats, results if args.verbose else None))
 
             else:
                 print("Ошибка: укажите хост и порт или используйте --file", file=sys.stderr)
@@ -110,8 +162,12 @@ def main():
             sys.exit(1)
 
         except KeyboardInterrupt:
-            print("\nПрервано пользователем", file=sys.stderr)
-            sys.exit(130)
+            if watch_mode:
+                print("\nWatchdog stopped by user", file=sys.stderr)
+                sys.exit(0)
+            else:
+                print("\nПрервано пользователем", file=sys.stderr)
+                sys.exit(130)
 
         except Exception as e:
             print(f"Внутренняя ошибка: {e}", file=sys.stderr)
@@ -123,8 +179,9 @@ def main():
 
         if not watch_mode:
             break
-    print(f"\n--- Waiting {watch_interval} seconds ---\n")
-    time.sleep(watch_interval)
+
+        print(f"\n--- Waiting {watch_interval} seconds ---\n")
+        time.sleep(watch_interval)
 
 
 if __name__ == "__main__":
