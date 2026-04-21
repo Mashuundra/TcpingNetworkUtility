@@ -283,7 +283,9 @@ class TestTCPingerKnock:
 
 class TestTCPingerSendSyn:
     """Тесты для метода _send_syn."""
+
     def setup_method(self):
+        """Инициализирует экземпляр TCPinger перед каждым тестом."""
         self.pinger = TCPinger(timeout=5.0)
 
     @patch("socket.socket")
