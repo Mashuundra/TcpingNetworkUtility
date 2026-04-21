@@ -283,7 +283,6 @@ class TestTCPingerKnock:
 
 class TestTCPingerSendSyn:
     """Тесты для метода _send_syn."""
-
     def setup_method(self):
         self.pinger = TCPinger(timeout=5.0)
 
