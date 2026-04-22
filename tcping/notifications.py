@@ -35,13 +35,15 @@ class Notifier:
             from_email: str,
             password: str,
             smtp_server: str = "smtp.gmail.com",
-            smtp_port: int = 587
+            smtp_port: int = 587,
+            debug: bool = False
     ):
         self.to_email = to_email
         self.from_email = from_email
         self.password = password
         self.smtp_server = smtp_server
         self.smtp_port = smtp_port
+        self.debug = debug
 
         # Для отслеживания предыдущих состояний
         self._last_status: Dict[tuple, bool] = {}
@@ -54,6 +56,15 @@ class Notifier:
             is_html: bool = False
     ) -> bool:
         """Отправляет email уведомление."""
+        if self.debug:
+            print("\n" + "=" * 60)
+            print(f"EMAIL (DEBUG MODE)")
+            print(f"To: {self.to_email}")
+            print(f"Subject: {subject}")
+            print(f"Body preview: {body[:300]}...")
+            print("=" * 60 + "\n")
+            return True
+
         try:
             msg = MIMEMultipart()
             msg['From'] = self.from_email
