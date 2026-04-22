@@ -132,7 +132,7 @@ def run_watchdog_mode(args, targets: List[Tuple[str, int]]):
     knock_ports = getattr(args, 'knock_ports', None)
     check_count = 0
 
-    print(f"🚀 Starting watchdog mode monitoring {len(targets)} service(s)")
+    print(f"Starting watchdog mode monitoring {len(targets)} service(s)")
     print(f"   Check interval: {args.watch_interval} seconds")
     if args.email:
         print(f"   Email notifications: {args.email}")
@@ -234,7 +234,7 @@ def main():
             run_standard_test(args, targets)
 
     except KeyboardInterrupt:
-        print("\n\n⚠️  Interrupted by user", file=sys.stderr)
+        print("\n\n Interrupted by user", file=sys.stderr)
         sys.exit(130)
 
     except Exception as e:

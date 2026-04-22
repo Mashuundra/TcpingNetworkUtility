@@ -9,10 +9,8 @@ from typing import List, Optional, Callable
 
 from tcping.models import PingResult
 
-try:
-    from tcping.output import DEBUG_MODE
-except ImportError:
-    DEBUG_MODE = False
+# DEBUG_MODE определяется по наличию --debug в аргументах командной строки
+DEBUG_MODE = '--debug' in sys.argv
 
 
 class TCPinger:
@@ -48,7 +46,7 @@ class TCPinger:
                     result.append((ip, family))
             if DEBUG_MODE:
                 ips = [ip for ip, _ in result]
-                print(f"[DEBUG] Resolved {host} to: {', '.join(ips)}", file=sys.stderr)
+                print(f"[DEBUG] DNS resolved {host} to: {', '.join(ips)}", file=sys.stderr)
             return result
         except socket.gaierror as e:
             if DEBUG_MODE:
@@ -93,6 +91,9 @@ class TCPinger:
         src_port = random.randint(10000, 65000)
         seq = random.randint(0, 2 ** 31 - 1)
 
+        if DEBUG_MODE:
+            print(f"[DEBUG] Sending SYN from port {src_port} to {ip}:{port}", file=sys.stderr)
+
         tcp_header = struct.pack(
             '!HHLLBBHHH',
             src_port, port, seq, 0,
@@ -128,6 +129,8 @@ class TCPinger:
             sock.sendto(tcp_header, (ip, 0, 0, 0))
 
         sock.close()
+        if DEBUG_MODE:
+            print(f"[DEBUG] SYN packet sent to {ip}:{port}", file=sys.stderr)
         return True
 
     def knock(self, host: str, ports: List[int], delay: float = 0.1) -> bool:
@@ -142,12 +145,17 @@ class TCPinger:
             return False
 
         ip, family = ips[0]
+        if DEBUG_MODE:
+            print(f"[DEBUG] Using target IP: {ip}", file=sys.stderr)
 
-        for port in ports:
+        for i, port in enumerate(ports, 1):
             if DEBUG_MODE:
-                print(f"[DEBUG] Knocking on {ip}:{port}", file=sys.stderr)
+                print(f"[DEBUG] Knock {i}/{len(ports)}: sending SYN to {ip}:{port}", file=sys.stderr)
             self._send_syn(ip, port, family)
-            time.sleep(delay)
+            if i < len(ports):
+                if DEBUG_MODE:
+                    print(f"[DEBUG] Waiting {delay}s before next knock", file=sys.stderr)
+                time.sleep(delay)
 
         if DEBUG_MODE:
             print(f"[DEBUG] Port knocking completed", file=sys.stderr)
@@ -157,6 +165,9 @@ class TCPinger:
         """IPv4 SYN scan через raw socket."""
         if self.is_windows:
             return self._connect_scan_ipv4(ip, port)
+
+        if DEBUG_MODE:
+            print(f"[DEBUG] IPv4: creating raw socket for {ip}:{port}", file=sys.stderr)
 
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
@@ -168,6 +179,9 @@ class TCPinger:
 
         src_port = random.randint(10000, 65000)
         seq = random.randint(0, 2 ** 31 - 1)
+
+        if DEBUG_MODE:
+            print(f"[DEBUG] IPv4: sending SYN from port {src_port} to {ip}:{port}", file=sys.stderr)
 
         tcp_header = struct.pack(
             '!HHLLBBHHH',
@@ -194,6 +208,9 @@ class TCPinger:
         start = time.perf_counter()
         sock.settimeout(self.timeout)
 
+        if DEBUG_MODE:
+            print(f"[DEBUG] IPv4: waiting for SYN-ACK (timeout={self.timeout}s)", file=sys.stderr)
+
         try:
             while True:
                 data, _ = sock.recvfrom(4096)
@@ -203,17 +220,26 @@ class TCPinger:
                 tcp_segment = data[iph_len:iph_len + 20]
                 flags = tcp_segment[13]
                 if flags & 0x12 == 0x12:
+                    if DEBUG_MODE:
+                        print(f"[DEBUG] IPv4: SYN-ACK received in {elapsed * 1000:.2f}ms", file=sys.stderr)
                     sock.close()
                     return (True, elapsed, None)
         except socket.timeout:
+            if DEBUG_MODE:
+                print(f"[DEBUG] IPv4: timeout after {self.timeout}s", file=sys.stderr)
             sock.close()
             return (False, None, f"timeout after {self.timeout}s")
         except Exception as e:
+            if DEBUG_MODE:
+                print(f"[DEBUG] IPv4: error: {e}", file=sys.stderr)
             sock.close()
             return (False, None, f"error: {e}")
 
     def _connect_scan_ipv4(self, ip: str, port: int) -> tuple:
         """Обычный connect scan для Windows."""
+        if DEBUG_MODE:
+            print(f"[DEBUG] IPv4: using connect scan for {ip}:{port}", file=sys.stderr)
+
         start = time.perf_counter()
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -221,18 +247,29 @@ class TCPinger:
             sock.connect((ip, port))
             elapsed = time.perf_counter() - start
             sock.close()
+            if DEBUG_MODE:
+                print(f"[DEBUG] IPv4: connected in {elapsed * 1000:.2f}ms", file=sys.stderr)
             return (True, elapsed, None)
         except socket.timeout:
+            if DEBUG_MODE:
+                print(f"[DEBUG] IPv4: timeout after {self.timeout}s", file=sys.stderr)
             return (False, None, f"timeout after {self.timeout}s")
         except ConnectionRefusedError:
+            if DEBUG_MODE:
+                print(f"[DEBUG] IPv4: connection refused", file=sys.stderr)
             return (False, None, "connection refused")
         except Exception as e:
+            if DEBUG_MODE:
+                print(f"[DEBUG] IPv4: error: {e}", file=sys.stderr)
             return (False, None, f"error: {e}")
 
     def _syn_scan_ipv6(self, ip: str, port: int) -> tuple:
         """IPv6 SYN scan через raw socket."""
         if self.is_windows:
             return self._connect_scan_ipv6(ip, port)
+
+        if DEBUG_MODE:
+            print(f"[DEBUG] IPv6: creating raw socket for {ip}:{port}", file=sys.stderr)
 
         try:
             sock = socket.socket(socket.AF_INET6, socket.SOCK_RAW, socket.IPPROTO_TCP)
@@ -247,6 +284,9 @@ class TCPinger:
 
         src_port = random.randint(10000, 65000)
         seq = random.randint(0, 2 ** 31 - 1)
+
+        if DEBUG_MODE:
+            print(f"[DEBUG] IPv6: sending SYN from port {src_port} to [{ip}]:{port}", file=sys.stderr)
 
         tcp_header = struct.pack(
             '!HHLLBBHHH',
@@ -272,6 +312,9 @@ class TCPinger:
         start = time.perf_counter()
         sock.settimeout(self.timeout)
 
+        if DEBUG_MODE:
+            print(f"[DEBUG] IPv6: waiting for SYN-ACK (timeout={self.timeout}s)", file=sys.stderr)
+
         try:
             while True:
                 data, _ = sock.recvfrom(4096)
@@ -280,17 +323,26 @@ class TCPinger:
                     tcp_start = 40
                     flags = data[tcp_start + 13]
                     if flags & 0x12 == 0x12:
+                        if DEBUG_MODE:
+                            print(f"[DEBUG] IPv6: SYN-ACK received in {elapsed * 1000:.2f}ms", file=sys.stderr)
                         sock.close()
                         return (True, elapsed, None)
         except socket.timeout:
+            if DEBUG_MODE:
+                print(f"[DEBUG] IPv6: timeout after {self.timeout}s", file=sys.stderr)
             sock.close()
             return (False, None, f"timeout after {self.timeout}s")
         except Exception as e:
+            if DEBUG_MODE:
+                print(f"[DEBUG] IPv6: error: {e}", file=sys.stderr)
             sock.close()
             return (False, None, f"error: {e}")
 
     def _connect_scan_ipv6(self, ip: str, port: int) -> tuple:
         """Обычный connect scan для IPv6 на Windows."""
+        if DEBUG_MODE:
+            print(f"[DEBUG] IPv6: using connect scan for [{ip}]:{port}", file=sys.stderr)
+
         start = time.perf_counter()
         try:
             sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
@@ -298,26 +350,41 @@ class TCPinger:
             sock.connect((ip, port))
             elapsed = time.perf_counter() - start
             sock.close()
+            if DEBUG_MODE:
+                print(f"[DEBUG] IPv6: connected in {elapsed * 1000:.2f}ms", file=sys.stderr)
             return (True, elapsed, None)
         except socket.timeout:
+            if DEBUG_MODE:
+                print(f"[DEBUG] IPv6: timeout after {self.timeout}s", file=sys.stderr)
             return (False, None, f"timeout after {self.timeout}s")
         except ConnectionRefusedError:
+            if DEBUG_MODE:
+                print(f"[DEBUG] IPv6: connection refused", file=sys.stderr)
             return (False, None, "connection refused")
         except Exception as e:
+            if DEBUG_MODE:
+                print(f"[DEBUG] IPv6: error: {e}", file=sys.stderr)
             return (False, None, f"error: {e}")
 
     def ping_once(self, host: str, port: int, knock_ports: Optional[List[int]] = None) -> PingResult:
         """Выполняет одну попытку."""
         if DEBUG_MODE:
             print(f"[DEBUG] Starting scan to {host}:{port}", file=sys.stderr)
+            print(f"[DEBUG] Timeout: {self.timeout}s", file=sys.stderr)
+            print(f"[DEBUG] Platform: {'Windows' if self.is_windows else 'Unix/Linux'}", file=sys.stderr)
 
         if knock_ports:
             if DEBUG_MODE:
                 print(f"[DEBUG] Port knocking sequence: {knock_ports}", file=sys.stderr)
             self.knock(host, knock_ports)
 
+        if DEBUG_MODE:
+            print(f"[DEBUG] Resolving hostname: {host}", file=sys.stderr)
+
         ips = self._resolve_host(host)
         if not ips:
+            if DEBUG_MODE:
+                print(f"[DEBUG] No IP addresses resolved for {host}", file=sys.stderr)
             return PingResult(
                 success=False,
                 host=host,
@@ -326,11 +393,15 @@ class TCPinger:
                 error_message=f"DNS resolution failed: {host}",
             )
 
+        if DEBUG_MODE:
+            print(f"[DEBUG] Total IPs to try: {len(ips)}", file=sys.stderr)
+
         last_error = None
 
-        for ip, family in ips:
+        for i, (ip, family) in enumerate(ips, 1):
             if DEBUG_MODE:
-                print(f"[DEBUG] Trying {ip} (family={family})...", file=sys.stderr)
+                family_name = "IPv4" if family == socket.AF_INET else "IPv6"
+                print(f"[DEBUG] Attempt {i}/{len(ips)}: trying {ip} ({family_name})", file=sys.stderr)
 
             if family == socket.AF_INET:
                 success, elapsed, error = self._syn_scan_ipv4(ip, port)
@@ -339,7 +410,7 @@ class TCPinger:
 
             if success:
                 if DEBUG_MODE:
-                    print(f"[DEBUG] Connected to {ip} in {elapsed * 1000:.2f}ms", file=sys.stderr)
+                    print(f"[DEBUG] SUCCESS: connected to {ip}:{port} in {elapsed * 1000:.2f}ms", file=sys.stderr)
                 return PingResult(
                     success=True,
                     host=host,
@@ -350,8 +421,11 @@ class TCPinger:
             else:
                 last_error = error
                 if DEBUG_MODE:
-                    print(f"[DEBUG] Failed {ip}: {error}", file=sys.stderr)
+                    print(f"[DEBUG] FAILED: {ip}:{port} - {error}", file=sys.stderr)
                 continue
+
+        if DEBUG_MODE:
+            print(f"[DEBUG] All attempts failed. Last error: {last_error}", file=sys.stderr)
 
         return PingResult(
             success=False,
@@ -372,11 +446,14 @@ class TCPinger:
     ) -> List[PingResult]:
         """Выполняет серию соединений с интервалом."""
         if DEBUG_MODE:
-            print(f"[DEBUG] Starting ping_many: {host}:{port}, count={count}, interval={interval}",
-                  file=sys.stderr)
+            print(f"[DEBUG] Starting ping_many: {host}:{port}, count={count}, interval={interval}s", file=sys.stderr)
+            if knock_ports:
+                print(f"[DEBUG] Knock ports: {knock_ports}", file=sys.stderr)
 
         results = []
         for i in range(count):
+            if DEBUG_MODE:
+                print(f"[DEBUG] Attempt {i + 1}/{count}", file=sys.stderr)
             result = self.ping_once(host, port, knock_ports=knock_ports)
             results.append(result)
 
@@ -384,10 +461,13 @@ class TCPinger:
                 stream_callback(result)
 
             if i < count - 1:
+                if DEBUG_MODE:
+                    print(f"[DEBUG] Waiting {interval}s before next attempt", file=sys.stderr)
                 time.sleep(interval)
 
         if DEBUG_MODE:
-            print(f"[DEBUG] ping_many completed", file=sys.stderr)
+            success_count = sum(1 for r in results if r.success)
+            print(f"[DEBUG] ping_many completed: {success_count}/{count} successful", file=sys.stderr)
 
         return results
 
