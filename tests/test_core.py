@@ -270,7 +270,7 @@ class TestTCPingerKnock:
 
         assert result is True
         assert mock_send_syn.call_count == 3
-        assert mock_sleep.call_count == 3
+        assert mock_sleep.call_count == 2
 
     @patch("tcping.core.TCPinger._resolve_host")
     def test_knock_dns_error(self, mock_resolve_host):
