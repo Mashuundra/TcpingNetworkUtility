@@ -46,7 +46,6 @@ def print_result(result: PingResult, file: TextIO = None) -> None:
             f"Failed to connect to {result.host}:{result.port} - {result.error_message}"
         )
 
-    # В отладочном режиме добавляем timestamp
     if DEBUG_MODE:
         timestamp = result.timestamp.strftime("%H:%M:%S.%f")[:-3]
         line = f"[{timestamp}] {line}"
