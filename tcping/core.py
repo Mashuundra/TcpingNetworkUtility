@@ -9,7 +9,6 @@ from typing import List, Optional, Callable
 
 from tcping.models import PingResult
 
-# DEBUG_MODE определяется по наличию --debug в аргументах командной строки
 DEBUG_MODE = '--debug' in sys.argv
 
 
