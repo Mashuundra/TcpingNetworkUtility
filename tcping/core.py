@@ -53,7 +53,7 @@ class TCPinger:
             return []
 
     def _send_syn_windows(self, ip: str, port: int) -> bool:
-        """Отправляет SYN-пакет на Windows используя обычный сокет."""
+        """Отправляет SYN-пакет на Windows."""
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(1.0)
