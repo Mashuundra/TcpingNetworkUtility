@@ -16,11 +16,13 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
         "  python main.py google.com 80\n"
         "  python main.py google.com 80 --count 10 --interval 0.5\n"
         "  python main.py --hosts-file hosts.txt --json\n"
-        "  python main.py ya.ru 443 --timeout 3 --verbose",
+        "  python main.py ya.ru 443 --timeout 3 --verbose\n"
+        "  python main.py --targets google.com:80,github.com:443 --watch\n"
+        "  python main.py --targets google.com:80 --knock 1000,2000,3000",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    # Режимы работы - НЕ делаем группу required, чтобы argparse сам обрабатывал ошибки
+    # Режимы работы
     parser.add_argument("host", nargs="?", help="Target host (IP or domain name)")
 
     parser.add_argument(
@@ -31,6 +33,21 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
     )
 
     parser.add_argument("port", nargs="?", type=int, help="Target port (1-65535)")
+
+    parser.add_argument(
+        "--targets",
+        "-T",
+        type=str,
+        help='Multiple targets: "host1:port1,host2:port2,..." or file with targets',
+    )
+
+    # Port knocking
+    parser.add_argument(
+        "--knock",
+        "-k",
+        type=str,
+        help='Port knocking sequence: "port1,port2,port3" (comma-separated)',
+    )
 
     # Опции
     parser.add_argument(
@@ -72,10 +89,76 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
         help="Verbose output with detailed information",
     )
 
-    # Парсим аргументы - пусть argparse сам обрабатывает ошибки
+    # Watchdog режим
+    parser.add_argument(
+        "--watch",
+        "-w",
+        action="store_true",
+        help="Watchdog mode - monitor services continuously",
+    )
+
+    parser.add_argument(
+        "--watch-interval",
+        "-wi",
+        type=int,
+        default=60,
+        help="Watchdog check interval in seconds (default: 60)",
+    )
+
+    # Email уведомления
+    parser.add_argument(
+        "--email",
+        "-e",
+        type=str,
+        help="Email address for notifications",
+    )
+
+    parser.add_argument(
+        "--smtp-server",
+        type=str,
+        default="smtp.gmail.com",
+        help="SMTP server (default: smtp.gmail.com)",
+    )
+
+    parser.add_argument(
+        "--smtp-port",
+        type=int,
+        default=587,
+        help="SMTP port (default: 587)",
+    )
+
+    parser.add_argument(
+        "--email-from",
+        type=str,
+        help="Sender email address",
+    )
+
+    parser.add_argument(
+        "--email-password",
+        type=str,
+        help="Sender email password or app password",
+    )
+
+    # Параллельное тестирование
+    parser.add_argument(
+        "--parallel",
+        "-p",
+        action="store_true",
+        help="Run tests in parallel mode",
+    )
+
+    parser.add_argument(
+        "--max-workers",
+        "-mw",
+        type=int,
+        default=4,
+        help="Maximum number of parallel workers (default: 4)",
+    )
+
+    # Парсим аргументы
     parsed_args = parser.parse_args(args)
 
-    # Дополнительная валидация после парсинга
+    # Дополнительная валидация
     _validate_args(parsed_args)
 
     return parsed_args
@@ -83,17 +166,22 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
 
 def _validate_args(args: argparse.Namespace) -> None:
     """Валидация аргументов после парсинга."""
-    # Проверка что указан либо хост+порт, либо файл
+    # Проверка что указан либо хост+порт, либо файл, либо targets
     has_host = args.host is not None
     has_port = args.port is not None
     has_file = args.hosts_file is not None
+    has_targets = args.targets is not None
 
-    if not has_file and not (has_host and has_port):
-        raise ConfigurationError("Either specify host and port, or use --hosts-file")
+    if not (has_file or has_targets or (has_host and has_port)):
+        raise ConfigurationError(
+            "Specify host and port, --hosts-file, or --targets"
+        )
 
-    # Проверка что не указаны оба режима одновременно
-    if has_file and (has_host or has_port):
-        raise ConfigurationError("Cannot specify both --hosts-file and host/port")
+    # Проверка конфликтов
+    if sum([has_file, has_targets, (has_host and has_port)]) > 1:
+        raise ConfigurationError(
+            "Cannot specify multiple input sources simultaneously"
+        )
 
     if has_host and has_port:
         validate_port(args.port)
@@ -105,10 +193,95 @@ def _validate_args(args: argparse.Namespace) -> None:
         if not args.hosts_file.is_file():
             raise HostsFileError(f"Path is not a file: {args.hosts_file}")
 
+    # Проверка targets
+    if has_targets:
+        if args.targets.endswith('.txt'):
+            target_path = Path(args.targets)
+            if not target_path.exists():
+                raise HostsFileError(f"Targets file not found: {target_path}")
+        # Валидация будет в parse_targets
+
+    # Парсим port knocking
+    if args.knock:
+        try:
+            ports = [int(p.strip()) for p in args.knock.split(',')]
+            for port in ports:
+                validate_port(port)
+            args.knock_ports = ports
+        except ValueError:
+            raise ConfigurationError(f"Invalid knock ports: {args.knock}")
+
+    # Проверка email настроек
+    if args.email:
+        if not args.email_from or not args.email_password:
+            raise ConfigurationError(
+                "Email notifications require --email-from and --email-password"
+            )
+
     # Проверка числовых параметров
     validate_count(args.count)
     validate_interval(args.interval)
     validate_timeout(args.timeout)
+
+
+def parse_targets(targets_str: str) -> List[Tuple[str, int]]:
+    """Парсит строку с несколькими целями."""
+    targets = []
+
+    if targets_str.endswith('.txt'):
+        # Чтение из файла
+        path = Path(targets_str)
+        if not path.exists():
+            raise HostsFileError(f"Targets file not found: {path}")
+
+        with open(path, 'r', encoding='utf-8') as f:
+            for line_num, line in enumerate(f, 1):
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                target = _parse_target_line(line, line_num)
+                if target:
+                    targets.append(target)
+    else:
+        # Парсим строку с целями через запятую
+        parts = targets_str.split(',')
+        for part in parts:
+            if ':' not in part:
+                raise ConfigurationError(f"Invalid target format: {part}")
+            host, port_str = part.split(':', 1)
+            try:
+                port = int(port_str)
+                validate_port(port)
+                targets.append((host, port))
+            except ValueError:
+                raise ConfigurationError(f"Invalid port in target: {part}")
+
+    if not targets:
+        raise ConfigurationError("No valid targets specified")
+
+    return targets
+
+
+def _parse_target_line(line: str, line_num: int) -> Optional[Tuple[str, int]]:
+    """Парсит одну строку из файла целей."""
+    # Формат: host port или host:port
+    parts = line.split()
+    if len(parts) == 2:
+        host, port_str = parts
+    elif len(parts) == 1 and ':' in parts[0]:
+        host, port_str = parts[0].split(':', 1)
+    else:
+        raise HostsFileError(
+            f"Invalid format at line {line_num}: {line}\n"
+            f"Expected: 'host port' or 'host:port'"
+        )
+
+    try:
+        port = int(port_str)
+        validate_port(port)
+        return (host, port)
+    except ValueError:
+        raise HostsFileError(f"Invalid port at line {line_num}: {port_str}")
 
 
 def validate_port(port: int) -> None:
