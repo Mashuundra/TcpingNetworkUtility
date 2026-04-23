@@ -161,7 +161,7 @@ class TCPinger:
         return True
 
     def _syn_scan_ipv4(self, ip: str, port: int) -> tuple:
-        """IPv4 SYN scan через raw socket."""
+        """SYN сканирование IPv4."""
         if self.is_windows:
             return self._connect_scan_ipv4(ip, port)
 
@@ -235,7 +235,7 @@ class TCPinger:
             return (False, None, f"error: {e}")
 
     def _connect_scan_ipv4(self, ip: str, port: int) -> tuple:
-        """Обычный connect scan для Windows."""
+        """Сonnect scan для Windows."""
         if DEBUG_MODE:
             print(f"[DEBUG] IPv4: using connect scan for {ip}:{port}", file=sys.stderr)
 
@@ -263,7 +263,7 @@ class TCPinger:
             return (False, None, f"error: {e}")
 
     def _syn_scan_ipv6(self, ip: str, port: int) -> tuple:
-        """IPv6 SYN scan через raw socket."""
+        """IPv6 SYN scan."""
         if self.is_windows:
             return self._connect_scan_ipv6(ip, port)
 
@@ -338,7 +338,7 @@ class TCPinger:
             return (False, None, f"error: {e}")
 
     def _connect_scan_ipv6(self, ip: str, port: int) -> tuple:
-        """Обычный connect scan для IPv6 на Windows."""
+        """Сonnect scan для IPv6 на Windows."""
         if DEBUG_MODE:
             print(f"[DEBUG] IPv6: using connect scan for [{ip}]:{port}", file=sys.stderr)
 
