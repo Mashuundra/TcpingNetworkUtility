@@ -263,7 +263,7 @@ class TCPinger:
             return (False, None, f"error: {e}")
 
     def _syn_scan_ipv6(self, ip: str, port: int) -> tuple:
-        """IPv6 SYN scan."""
+        """SYN сканирование IPv6."""
         if self.is_windows:
             return self._connect_scan_ipv6(ip, port)
 
